@@ -1,0 +1,77 @@
+# ==============================================================================
+# 🚀 一键发版 — 全程网页操作,无需本地环境
+# ==============================================================================
+# 用法: 仓库 Actions 页 → "Release (发版并通知下游)" → Run workflow → 选版本级别 → 运行。
+# 它会依次: 跑测试(不过不发) → npm version 升号+打 tag → 发布到 GitHub Packages
+#          → repository_dispatch 通知所有下游仓库(下游的 update-core.yml 收到后
+#            自动升级依赖并触发各自的部署)。
+#
+# 版本级别怎么选(详见 docs/DEVLOG.md 发版规则):
+#   patch = 修 bug / 更换数据源镜像 / 文档       (下游无感)
+#   minor = 新增国家、新增 kind、新增 API        (向后兼容的新能力)
+#   major = fact 字段删除或语义变更 / 签名变更   (下游需要跟着改代码)
+#
+# 一次性准备:
+#   仓库 Settings → Secrets and variables → Actions → 新建 Secret:
+#     GH_PAT = 你的 classic PAT(scopes: repo + read:packages)。
+#     发布本身用内置 GITHUB_TOKEN 即可;GH_PAT 只用于跨仓库 dispatch 通知下游。
+# ==============================================================================
+name: Release (发版并通知下游)
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: '版本级别 (patch=修bug/换源 | minor=新能力 | major=破坏兼容)'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+        required: true
+
+env:
+  # ↓ 下游消费者仓库名(同一账号下),空格分隔。增删消费者只改这一行。
+  CONSUMER_REPOS: 'alarm-api reminder-hub'
+
+permissions:
+  contents: write   # npm version 的提交与 tag 需要
+  packages: write   # 发布到 GitHub Packages 需要
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://npm.pkg.github.com'   # 写好 .npmrc 指向 GitHub Packages
+
+      - name: 测试(不过不发)
+        run: npm test
+
+      - name: 升版本号并打 tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version ${{ inputs.bump }} -m "release: v%s"
+          git push --follow-tags
+
+      - name: 发布到 GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 通知下游仓库自动升级 (repository_dispatch)
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          VER=$(node -p "require('./package.json').version")
+          for repo in $CONSUMER_REPOS; do
+            echo "→ dispatch ${{ github.repository_owner }}/$repo (v$VER)"
+            curl -sS -f -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository_owner }}/$repo/dispatches" \
+              -d "{\"event_type\":\"workdays-core-release\",\"client_payload\":{\"version\":\"$VER\"}}"
+          done
