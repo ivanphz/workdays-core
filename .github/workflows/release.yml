@@ -30,7 +30,7 @@ on:
 
 env:
   # ↓ 下游消费者仓库名(同一账号下),空格分隔。增删消费者只改这一行。
-  CONSUMER_REPOS: 'alarm-api calendar-api'
+  CONSUMER_REPOS: 'alarm-api reminder-hub'
 
 permissions:
   contents: write   # npm version 的提交与 tag 需要

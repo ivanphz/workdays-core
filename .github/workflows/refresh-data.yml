@@ -1,0 +1,61 @@
+# ==============================================================================
+# 🔄 数据刷新流水线 — 每日自动抓上游、真变才提交、自动 patch 发版直达下游
+# ==============================================================================
+# 链路: 本 workflow(抓取+提交) → release.yml(测试+发版+dispatch 下游)
+#       → 下游 update-core.yml(升级依赖) → 下游 deploy.yml(部署)。
+# 每年 11 月国务院公告一发,全链路无人值守直达线上;数据无变化时静默退出。
+#
+# 安全设计:
+#   · 发版前 release.yml 必跑测试,测试断言【真实公告数据】—— 上游数据异常大概率当场红灯拦截;
+#   · 数据出错可用 rollback.yml 一键前滚回任意历史版本;
+#   · 提交用 GITHUB_TOKEN(其 push 不触发其它 workflow,恰好避免 test.yml 重复跑,
+#     测试由 release 负责);触发 release 必须用 GH_PAT(GITHUB_TOKEN 发的事件不会
+#     创建新的 workflow run —— 老坑)。
+name: Refresh holiday data (数据刷新)
+
+on:
+  schedule:
+    - cron: '30 21 * * *'   # 每日 UTC 21:30 = 北京时间 05:30
+  workflow_dispatch: {}      # 首次归档 HK / 手动补刷 用这里
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 抓取上游并再生成数据模块(真变才落盘)
+        run: node scripts/refresh-data.mjs
+
+      - name: 有变更则提交
+        id: commit
+        run: |
+          if git diff --quiet -- src/data; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "数据无变化,不发版。"
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add src/data
+            git commit -m "data: refresh holiday archive ($(date -u +%F))"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 自动发版(patch,经 release.yml 走完整测试+发布+通知下游)
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          curl -sS -f -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/release.yml/dispatches" \
+            -d '{"ref":"main","inputs":{"bump":"patch"}}'
