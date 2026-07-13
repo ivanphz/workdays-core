@@ -9,5 +9,6 @@ export const SG_TRANSLATIONS = {
   'Hari Raya Haji': { sc: '哈芝节', tc: '哈芝節' },
   'National Day': { sc: '国庆日', tc: '國慶日' },
   'Deepavali': { sc: '屠妖节', tc: '屠妖節' },
-  'Christmas Day': { sc: '圣诞节', tc: '聖誕節' }
+  'Christmas Day': { sc: '圣诞节', tc: '聖誕節' },
+  'Polling Day': { sc: '投票日', tc: '投票日' } // 根据 2020、2023 历史数据补充
 };

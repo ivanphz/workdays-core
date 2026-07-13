@@ -14,6 +14,6 @@ export default {
     defaultKind: 'public',
     kinds: { public: { dataset: 'SG' } }
   }],
-  createProviders: () => ({ 'SG': createArchiveProvider({ dataset: 'SG', tag: 'SG', sourceName: 'data.gov.sg', legacyLang: 'en', data: SG_DATA, sliceDays: d => d.days }) }),
-  fetch: (fetchImpl) => fetchSg(fetchImpl)
+  createProviders: () => ({ 'SG': createArchiveProvider({ dataset: 'SG', tag: 'SG', sourceName: 'MOM', legacyLang: 'en', data: SG_DATA, sliceDays: d => d.days }) }),
+  fetch: (fetchImpl, years) => fetchSg(fetchImpl, years)
 };
