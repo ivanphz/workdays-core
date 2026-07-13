@@ -1,16 +1,27 @@
 {
   "name": "ivanphz/workdays-core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "多国工作日/假期事实引擎: CN(bank/market)·HK·US(bank/NYSE), 三态调休/observed顺延/coverage覆盖度。库,不是服务;事实,不是结论。",
   "main": "src/index.js",
-  "exports": { ".": "./src/index.js" },
-  "files": ["src"],
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src"
+  ],
   "scripts": {
     "test": "node --test"
   },
-  "publishConfig": { "registry": "https://npm.pkg.github.com" },
-  "repository": { "type": "git", "url": "git+https://github.com/ivanphz/workdays-core.git" },
-  "engines": { "node": ">=18" },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ivanphz/workdays-core.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "license": "UNLICENSED"
 }
