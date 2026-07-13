@@ -1,6 +1,6 @@
 {
   "name": "@ivanphz/workdays-core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "多国工作日/假期事实引擎: CN(bank/market)·HK·US(bank/NYSE), 三态调休/observed顺延/coverage覆盖度。库,不是服务;事实,不是结论。",
   "main": "src/index.js",
