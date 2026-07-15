@@ -203,26 +203,21 @@ export const JP_DATA = {
 
 ## 6. 接入清单(数据文件就绪之后)
 
-| # | 动作 | 位置 |
-|---|---|---|
-| 1 | 数据文件(§5 产物;新地区首刷前可为空结构) | `src/data/xx.data.js` |
-| 2 | 地区行:defaultKind + kinds | `src/tokens.js` CANONICAL |
-| 3 | alpha-3 双射一行 + REGION_META 一行(alpha2/alpha3/tz/多语全称) | `src/tokens.js` |
-| 4 | 注册两行:PROVIDER_FACTORIES(清单型用 `createArchiveProvider` 薄配置,参考 `providers/sg.js` 全文 20 行)+ DATASET_META | `src/index.js` |
-| 5 | (可选)在线/流水线抓取函数,失败返 null 不抛错 | `src/sources.js` + `scripts/refresh-data.mjs` 加一段 |
-| 6 | (可选)译名 | `src/data/translations.js` |
-| 7 | 测试:token 解析 + 金标准日期 + coverage + 与相邻口径差异钉子 | `test/core.test.mjs` |
-| 8 | 文档:README / INTEGRATION token 表各一行 | docs |
-| 9 | Release **minor** | Actions |
+> ⚠️ v3 起接入步骤全部收敛到**数据集文件夹**,不再散落 tokens/index/sources 等中心文件。
+> 完整步骤(文件夹结构 + 注册 + 抓取契约 + 故障隔离)见 **`docs/DATASET-GUIDE.md`**,那是唯一权威。
+> 一句话:放好 `src/datasets/<code>/`(index 清单 + data + fetch + 可选 provider/translations)→
+> `src/datasets/_loader.js` 的 REGISTRY 加一行 → 测试 → Release minor。本文档只管**数据文件本身的格式**。
 
 ---
 
-## 7. 自动化抓取规范(sources.js / 流水线契约)
+## 7. 自动化抓取规范(fetch 契约,与 DATASET-GUIDE §4 一致)
 
-- 抓取函数契约:`async fetchXx(fetchImpl?) → 数据 | null`。**失败返 null,绝不抛错、绝不返回半截数据**;调用方(流水线/online 模式)自行退档。
-- 返回形态:清单型返回 `{date: 条目}`(条目允许任何历史形态,消费端经 `normalizeDayEntry` 归一);多语源分语言独立抓取、合入同一天的 names(参考 `fetchHkTrilingual`)。
-- 流水线合并语义:三态型(CN)=成功年份**整年替换**、失败年份保留;清单型=**日期×语言粒度只增不删**(同语言窗口内新值覆盖,历史与其它语言永不动)。
-- 读取端对旧格式容错归一(schema.js),流水线首刷自动把旧归档改写成 schema 2——**迁移无人工步骤**。
+- 契约:`async fetchXx(fetchImpl, years) → 数据 | null`。**失败返 null,绝不抛错、绝不返回半截数据**;调用方(流水线/online 模式)自行退档。
+- **必须消费 `years`**:按年源(如 SG 的 MOM 按年 ICS)据此逐年抓,清单里 `fetch: (fetchImpl, years) => fetchXx(fetchImpl, years)` 透传;整份源(HK/GB)可忽略。
+- **空运行守卫**:HTTP 200 但解析 0 条 = 失败,跳过/返回 null,**绝不把"0 条"当"无假期"写进归档**(配合只增不删,坏源只会"不更新",数据不丢)。
+- **ICS 时区**:`VALUE=DATE` 纯日期安全;`T...Z` 的 UTC 时刻对 UTC+8 地区可能早一天,需先换算到当地日期(详见 DATASET-GUIDE §4)。
+- 返回形态:清单型 `{date: 条目}`;多 dataset(GB)`{datasetId: {date:条目}}`;三态型(CN)`{year: [条目]}`。多语源分语言抓取、合入同一天 names(参考 hk/fetch.js)。
+- 流水线合并语义:三态型(CN)成功年份**整年替换**、失败保留;清单型**日期×语言只增不删**。读取端对旧格式容错归一(schema.js),迁移无人工步骤。
 
 ---
 

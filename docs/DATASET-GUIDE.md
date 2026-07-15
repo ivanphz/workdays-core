@@ -97,8 +97,18 @@ src/datasets/<code>/         # <code> = 两位小写(见 §2 命名)
 ```js
 import { createArchiveProvider } from '../_archive-provider.js';
 createArchiveProvider({ dataset, tag, sourceName, legacyLang, data, sliceDays });
-// sliceDays(data) 返回该 dataset 的 {date:条目};多分域各调一次(见 gb/index.js)
 ```
+
+参数逐个说明(别当黑盒填,填错会静默出错):
+
+| 参数 | 类型 | 说明 | 取值范例 |
+|---|---|---|---|
+| `dataset` | string | 数据集 id(= region 或 region-变体),与 tokens.datasetOf 一致 | `'HK'` / `'GB-EAW'` |
+| `tag` | string | **日志标签**,出现在 loadLogs/warnings 里,便于排查。惯例=大写地区码 | `'HK'` / `'GB:eaw'` |
+| `sourceName` | string | 数据源人读名(进 coverage.source),纯展示 | `'1823.gov.hk'` |
+| `legacyLang` | string | **旧格式条目的默认语言**:v2.2 遗留的纯字符串/无 names 条目按此语言归一。取该数据集**主官方语言**(HK=`'sc'`,GB/SG=`'en'`) | `'sc'` / `'en'` |
+| `data` | object | 该数据集的 data.js 导出对象(schema 2) | `HK_DATA` |
+| `sliceDays` | fn | `(data) => {date:条目}`,从 data 取出本 dataset 的天。**多分域必须靠它切片**(GB 一份 data 三个分域) | `d => d.days` / `d => d.divisions.eaw` |
 
 ---
 
@@ -111,8 +121,11 @@ createArchiveProvider({ dataset, tag, sourceName, legacyLang, data, sliceDays })
 export async function fetchXx(fetchImpl, years) { ... }
 ```
 
-铁律:**失败返 `null`,绝不抛错、绝不返回半截数据**。多源多格式在函数内部降级(HK 的
-JSON→ICS、CN 的三镜像都是范例)。`fetchImpl` 缺省用 `globalThis.fetch`(测试注入用)。
+铁律:
+- **失败返 `null`**,绝不抛错、绝不返回半截数据。多源多格式在函数内部降级(HK 的 JSON→ICS、CN 的三镜像都是范例)。`fetchImpl` 缺省用 `globalThis.fetch`(测试注入用)。
+- **必须消费 `years`**(按年源尤其):源是"每年一个文件/一个接口"时(如 SG 的 MOM 按年 ICS),不拿 `years` 就不知道抓哪些年。清单里 `fetch` 也要把 years 透传:`fetch: (fetchImpl, years) => fetchXx(fetchImpl, years)`——**别照抄只写 `(fetchImpl)` 的旧样例**。整份源(一次拿多年,如 HK/GB)可忽略此参数。流水线与在线模式都会传入实际年份范围。
+- **空运行守卫**(防静默坏源):抓取返回 HTTP 200 但**解析出 0 条**,视为**解析失败**——跳过该年/返回 null,**绝不把"0 条"当"该年无假期"写进归档**。否则源改版(字段名变、DOM 变)会悄悄清空数据;有此守卫时,坏源只会"不更新",配合"只增不删"归档,既有数据永远不丢。
+- **ICS 时区陷阱**:`DTSTART;VALUE=DATE:YYYYMMDD`(纯日期)可直接取 8 位数字,安全。但若源给 `DTSTART:YYYYMMDDT......Z`(**UTC 时刻**),对 UTC+8 地区(CN/HK/SG)直接取前 8 位可能**早一天**(UTC 的 23:00 已是当地次日)。遇到带 `T...Z` 的时刻,先换算到该数据集 `tz` 的当地日期再取 `YYYY-MM-DD`。官方节假日源通常用 VALUE=DATE,不踩此坑,但适配新源时务必确认。
 
 ---
 
@@ -130,7 +143,7 @@ export default {
     kinds: { public: { dataset: 'HK' } }                 // kind → dataset id
   }],
   createProviders: () => ({ 'HK': <provider 实例> }),     // dataset id → provider
-  fetch: (fetchImpl, years) => fetchHk(fetchImpl)         // 可选;算法型省略
+  fetch: (fetchImpl, years) => fetchHk(fetchImpl, years)  // 可选;按年源必须透传 years,算法型省略
 };
 ```
 
@@ -145,7 +158,8 @@ export default {
 > 官方源:__(URL 或附件历史数据)。源格式:__(JSON/ICS/CSV/HTML)。官方语言:__。时区(IANA):__。
 > 口径:__(单一 public / bank+market / 分域)。类型:__(清单型/算法型/三态型)。
 > 产出全部文件(index.js / data.js / fetch.js / 可选 provider.js、translations.js、exceptions.js),
-> 数据文件按 DATA-FORMAT.md schema 2 序列化(逐条一行),fetch 失败返 null,通过两份文档的自检清单。
+> 数据文件按 DATA-FORMAT.md schema 2 序列化(逐条一行);fetch 失败返 null、必须消费 years(按年源)、
+> 空运行(200 但 0 条)当失败跳过、ICS 注意 UTC 时刻换算;通过两份文档的自检清单。
 > 最后告诉我在 `src/datasets/_loader.js` 的 REGISTRY 里加哪一行。
 
 **生成步骤**:①定类型(有官方调休→三态;纯规则可算→算法;否则清单)②`data.js`(历史数据按
@@ -157,6 +171,15 @@ schema 2;算法型跳过)③`fetch.js`(取+译两层;算法型跳过)④`provide
 第N个星期几+复活节)→ 算法型。
 
 ---
+
+## 6b. 交付前自检清单(AI 逐项过)
+
+- [ ] `createArchiveProvider` 六个参数都填对?`sliceDays` 能正确切出本 dataset 的天(多分域尤其)?`legacyLang` = 主官方语言?
+- [ ] `fetch(fetchImpl, years)` 与清单 `fetch: (fetchImpl, years) => ...` **都透传 years**?按年源真的用了 years?
+- [ ] 抓取失败/解析 0 条 → **返回 null**,不写空、不抛错?
+- [ ] ICS 用 `VALUE=DATE`?若是 `T...Z` 的 UTC 时刻,是否换算到当地日期?
+- [ ] data.js 是 schema 2、逐条一行、只增不删?算法型无 data.js/fetch?
+- [ ] `code` 两位小写、`regions/kinds/createProviders` 齐全(否则被装载器丢弃)?
 
 ## 7. 接入与验证
 
