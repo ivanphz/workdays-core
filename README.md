@@ -1,6 +1,6 @@
 # workdays-core
 
-多国工作日/假期**事实引擎**。一个 npm 库(发布在 GitHub Packages),被 `alarm-api` 与 `reminder-hub` 共同引用 —— 两个项目原本各自维护的假期抓取/推算代码,合并后的**单一真相源**。v2 起运行时**零联网**:数据打包内置,由每日流水线维护。
+多国工作日/假期**事实引擎**。一个 npm 库(发布在 GitHub Packages),被 `alarm-api` 与 `calendar-api` 共同引用 —— 两个项目原本各自维护的假期抓取/推算代码,合并后的**单一真相源**。v2 起运行时**零联网**:数据打包内置,由每日流水线维护。
 
 ## 架构:数据集插件化(v3)
 
@@ -55,7 +55,7 @@ CN/HK 数据打包内置于 `src/data/*.data.js`,**勿手改**,由 `.github/work
 ## 30 秒上手
 
 ```js
-import { createHolidayHub } from '@OWNER/workdays-core';
+import { createHolidayHub } from '@ivanphz/workdays-core';
 
 const hub = await createHolidayHub(['CN', 'US:market'], [2026, 2027]);
 
@@ -87,7 +87,7 @@ hub.coverage;         // 结构化明细 [{dataset, region, kind, year, ok, mode
 |---|---|---|
 | `docs/DATASET-GUIDE.md` | **要新增国家的人或 AI** | 数据集插件的整体结构与契约、输入输出两分总纲、换源实操、AI 生成任务模板、故障隔离 |
 | `docs/DATA-FORMAT.md` | 数据文件本身的格式 | schema 2 字段表、最小档、AI 数据文件生成手册、取值指南、预留字段 |
-| `docs/INTEGRATION.md` | **alarm-api / reminder-hub 两个项目** | 一次性准备、API 速查、接入手册、自动升级链路、升级须知、数据流水线与回滚 runbook、坑清单 |
+| `docs/INTEGRATION.md` | **alarm-api / calendar-api 两个项目** | 一次性准备、API 速查、接入手册、自动升级链路、升级须知、数据流水线与回滚 runbook、坑清单 |
 | `docs/DEVLOG.md` | 未来改进本包的人(包括未来的我) | 各版本设计思路与决策记录、兼容承诺、发版规则、路线图 |
 
 ## 测试
