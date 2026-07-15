@@ -98,12 +98,6 @@ const WRITERS = {
   // us: 算法型,无 WRITER(不参与刷新)
 };
 
-// 刷新覆盖的年份范围(按年源用):2018(HK/SG ICS 起点)..次年。整份源忽略此参数。
-const REFRESH_YEARS = (() => {
-  const now = new Date().getUTCFullYear();
-  return Array.from({ length: (now + 1) - 2018 + 1 }, (_, i) => 2018 + i);
-})();
-
 async function main() {
   const generatedAt = new Date().toISOString();
   const { manifests, errors } = await loadDatasets();
@@ -122,8 +116,10 @@ async function main() {
     const existingBody = writer.body(existingData);
     // 抓取(容错)
     let fetched = null;
-    // 传年份范围: 按年源(如 SG MOM ICS)据此逐年抓;整份源(HK/GB)可忽略此参数
-    try { fetched = await m.fetch(undefined, REFRESH_YEARS); }
+    // 【年份范围归数据集自己定】流水线不传 years:各数据集的数据起点不同(CN 2007、HK/SG 2018),
+    // 中心不该替各国拍板。按年源的 fetch 在 years 缺省时用自己的全量范围(见 DATASET-GUIDE §4);
+    // 整份源(HK/GB)本就忽略此参数。在线模式才按需传窗口年份(那里只要当前几年,不要全量)。
+    try { fetched = await m.fetch(); }
     catch (e) { console.log(`[${code}] fetch 抛错,保留既有归档 → ${e.message}`); }
     if (!fetched) console.log(`[${code}] fetch 无数据,保留既有归档`);
     // 合并 + 落盘判断
