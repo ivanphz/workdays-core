@@ -98,6 +98,12 @@ const WRITERS = {
   // us: 算法型,无 WRITER(不参与刷新)
 };
 
+// 刷新覆盖的年份范围(按年源用):2018(HK/SG ICS 起点)..次年。整份源忽略此参数。
+const REFRESH_YEARS = (() => {
+  const now = new Date().getUTCFullYear();
+  return Array.from({ length: (now + 1) - 2018 + 1 }, (_, i) => 2018 + i);
+})();
+
 async function main() {
   const generatedAt = new Date().toISOString();
   const { manifests, errors } = await loadDatasets();
@@ -116,7 +122,8 @@ async function main() {
     const existingBody = writer.body(existingData);
     // 抓取(容错)
     let fetched = null;
-    try { fetched = await m.fetch(); }
+    // 传年份范围: 按年源(如 SG MOM ICS)据此逐年抓;整份源(HK/GB)可忽略此参数
+    try { fetched = await m.fetch(undefined, REFRESH_YEARS); }
     catch (e) { console.log(`[${code}] fetch 抛错,保留既有归档 → ${e.message}`); }
     if (!fetched) console.log(`[${code}] fetch 无数据,保留既有归档`);
     // 合并 + 落盘判断
