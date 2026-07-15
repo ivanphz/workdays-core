@@ -1,11 +1,11 @@
 # ==============================================================================
-# ⏪ 数据回滚 — 前滚式:把 src/data/ 恢复到任意历史版本,发一个新 patch 顺链流到下游
+# ⏪ 数据回滚 — 前滚式:把 src/datasets/ 恢复到任意历史版本,发一个新 patch 顺链流到下游
 # ==============================================================================
 # 用法: Actions → 本 workflow → Run workflow → 填目标版本(tag 如 v2.0.3,或 commit SHA)。
 # 为什么是"前滚"而不是撤包: 下游 update-core 自动跟 latest,npm 撤包/降版会打断
 # 整条自动链;发一个"内容=旧数据"的新版本,链路原样走通,零特殊处理。
 #
-# ⚠️ 只回滚数据(src/data/),不动代码 —— 自动化只会改数据,代码回滚走人工 revert。
+# ⚠️ 只回滚数据(src/datasets/),不动代码 —— 自动化只会改数据,代码回滚走人工 revert。
 # ⚠️ 若坏数据来自上游且上游未修复: 回滚后请同时 Disable refresh-data workflow
 #    (Actions 页 → 该 workflow → ⋯ → Disable),否则次日刷新会再次收录;上游修复后再 Enable。
 name: Rollback data (数据回滚)
@@ -30,18 +30,18 @@ jobs:
           fetch-depth: 0   # 需要完整历史才能检出任意 tag/SHA
 
       - name: 用目标版本覆盖当前数据
-        run: git checkout ${{ inputs.ref }} -- src/data/
+        run: git checkout ${{ inputs.ref }} -- src/datasets/
 
       - name: 有差异则提交回滚
         id: commit
         run: |
-          if git diff --cached --quiet && git diff --quiet -- src/data; then
+          if git diff --cached --quiet && git diff --quiet -- src/datasets; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "目标版本与当前数据一致,无需回滚。"
           else
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add src/data
+            git add src/datasets
             git commit -m "revert: rollback holiday data to ${{ inputs.ref }}"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"

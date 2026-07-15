@@ -12,9 +12,12 @@
 #   major = fact 字段删除或语义变更 / 签名变更   (下游需要跟着改代码)
 #
 # 一次性准备:
-#   仓库 Settings → Secrets and variables → Actions → 新建 Secret:
-#     GH_PAT = 你的 classic PAT(scopes: repo + read:packages)。
-#     发布本身用内置 GITHUB_TOKEN 即可;GH_PAT 只用于跨仓库 dispatch 通知下游。
+#   仓库 Settings → Secrets and variables → Actions:
+#     · Secrets 页新建 GH_PAT = 你的 classic PAT(scopes: repo + read:packages)。
+#       发布本身用内置 GITHUB_TOKEN 即可;GH_PAT 只用于跨仓库 dispatch 通知下游。
+#     · Variables 页新建 CONSUMER_REPOS = 下游仓库名(空格分隔),如: alarm-api calendar-api
+#       ★ 放在仓库 Variables(而非写死在本 yml):以后增删下游只在网页改这一个变量,
+#         就算本 workflow 被重新生成/覆盖,变量值也不丢、不用重填。
 # ==============================================================================
 name: Release (发版并通知下游)
 
@@ -27,10 +30,6 @@ on:
         options: [patch, minor, major]
         default: patch
         required: true
-
-env:
-  # ↓ 下游消费者仓库名(同一账号下),空格分隔。增删消费者只改这一行。
-  CONSUMER_REPOS: 'alarm-api calendar-api'
 
 permissions:
   contents: write   # npm version 的提交与 tag 需要
@@ -65,8 +64,12 @@ jobs:
       - name: 通知下游仓库自动升级 (repository_dispatch)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          CONSUMER_REPOS: ${{ vars.CONSUMER_REPOS }}   # 值在 仓库 Settings→Variables,重生成本文件也不丢
         run: |
           VER=$(node -p "require('./package.json').version")
+          if [ -z "$CONSUMER_REPOS" ]; then
+            echo "::warning::未设置仓库变量 CONSUMER_REPOS,跳过下游通知(在 Settings→Variables 添加)"
+          fi
           for repo in $CONSUMER_REPOS; do
             echo "→ dispatch ${{ github.repository_owner }}/$repo (v$VER)"
             curl -sS -f -X POST \

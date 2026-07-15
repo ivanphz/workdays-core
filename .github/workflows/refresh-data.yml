@@ -37,13 +37,13 @@ jobs:
       - name: 有变更则提交
         id: commit
         run: |
-          if git diff --quiet -- src/data; then
+          if git diff --quiet -- src/datasets; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "数据无变化,不发版。"
           else
             git config user.name  "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add src/data
+            git add src/datasets
             git commit -m "data: refresh holiday archive ($(date -u +%F))"
             git push
             echo "changed=true" >> "$GITHUB_OUTPUT"
